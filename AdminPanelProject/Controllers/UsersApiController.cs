@@ -393,7 +393,7 @@ public class UsersController : ControllerBase
     {
         if (password.Length < 8 || password.Length > 50)
             return false;
-
+        
         bool hasUpper = password.Any(char.IsUpper);
         bool hasDigit = password.Any(char.IsDigit);
         bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
