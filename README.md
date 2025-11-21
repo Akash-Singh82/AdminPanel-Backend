@@ -27,7 +27,7 @@ It includes secure authentication, role-based access control, user management, a
 | JWT | Auth Token |
 | AutoMapper | Mapping DTOs & Entities |
 
----
+---------
 
 ## 📂 Project Structure
 
@@ -42,3 +42,4 @@ AdminPanelProject/
 ├── Migrations/
 ├── appsettings.json.template ← Sample config file for setup
 └── ...
+
