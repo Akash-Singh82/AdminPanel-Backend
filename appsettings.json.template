@@ -1,0 +1,24 @@
+{
+  "ConnectionStrings": {
+    "SQLServerIdentityConnection": "YOUR_CONNECTION_STRING_HERE"
+  },
+  "EmailSettings": {
+    "SmtpServer": "",
+    "SmtpPort": "",
+    "SenderName": "",
+    "SenderEmail": "",
+    "Password": ""
+  },
+  "JwtSettings": {
+    "Issuer": "",
+    "Audience": "",
+    "SecretKey": ""
+  },
+  "AppSettings": {
+    "BaseUrl": ""
+  },
+  "GoogleReCaptcha": {
+    "SiteKey": "",
+    "SecretKey": ""
+  }
+}

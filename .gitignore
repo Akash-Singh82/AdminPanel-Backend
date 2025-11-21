@@ -1,0 +1,21 @@
+# Build and publish output
+bin/
+obj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+
+# Sensitive configuration - DO NOT COMMIT
+appsettings.json
+appsettings.*.json
+.env
+secrets.json
+.secrets/
+
+# Logs
+*.log
+
+# Other
+node_modules/
