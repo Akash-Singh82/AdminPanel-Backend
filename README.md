@@ -25,7 +25,7 @@ It includes secure authentication, role-based access control, user management, a
 | Entity Framework Core | ORM |
 | SQL Server | Database |
 | JWT | Auth Token |
-| AutoMapper | Mapping DTOs & Entities |
+
 
 ---------
 
@@ -35,6 +35,7 @@ It includes secure authentication, role-based access control, user management, a
 
 AdminPanelProject/
 │
+<br/>
 ├── Controllers/
 ├── Services/
 ├── Models/
