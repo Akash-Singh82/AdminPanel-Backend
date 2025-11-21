@@ -304,7 +304,7 @@ namespace AdminPanelProject.Controllers
      || System.Text.RegularExpressions.Regex.IsMatch(name, @"\s{2,}"))
                 return "Role name can only contain alphabets and a single space between words.";
 
-            return null; // valid
+            return null; // valid output
         }
 
     }
