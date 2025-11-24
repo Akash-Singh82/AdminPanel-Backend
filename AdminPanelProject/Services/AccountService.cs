@@ -231,7 +231,8 @@ namespace ASPNETCoreIdentityDemo.Services
 
             // Construct the password reset link with the encoded token and user’s email
             var baseUrl = _configuration["AppSettings:BaseUrl"];
-            var resetLink = $"{baseUrl}/account/reset-password?email={user.Email}&token={encodedToken}";
+            //var resetLink = $"{baseUrl}/account/reset-password?email={user.Email}&token={encodedToken}";
+            var resetLink = $"https://akash-singh82.github.io/AdminPanel-Frontend/account/reset-password?email={user.Email}&token={encodedToken}";
 
             // Send the reset link via email to the user
             await _emailService.SendPasswordResetEmailAsync(user.Email!, user.FirstName, resetLink);
