@@ -16,6 +16,7 @@ namespace AdminPanelProject.Controllers
     [Authorize]
     public class EmailTemplatesController : Controller
     {
+
         private readonly IEmailTemplateService _svc;
         private readonly IWebHostEnvironment _env;
         private readonly IAuditLogService _audit;

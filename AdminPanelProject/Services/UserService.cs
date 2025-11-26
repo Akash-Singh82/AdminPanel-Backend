@@ -13,6 +13,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.Caching.Memory;
 
 
 namespace AdminPanelProject.Services
@@ -25,13 +26,18 @@ namespace AdminPanelProject.Services
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly IHttpContextAccessor _httpContextAccessor;
+
+        private readonly IMemoryCache _cache;
+
+       
         public UserService(
             UserManager<ApplicationUser> userManager,
             RoleManager<ApplicationRole> roleManager,
             ApplicationDbContext context,
             IWebHostEnvironment env,
             ILogger<UserService> logger,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IMemoryCache cache)
         {
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
@@ -39,6 +45,7 @@ namespace AdminPanelProject.Services
             _env = env ?? throw new ArgumentNullException(nameof(env));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _httpContextAccessor = httpContextAccessor;
+            _cache = cache;
 
         }
 
@@ -49,8 +56,51 @@ namespace AdminPanelProject.Services
             return count.ToString();
         }
 
+        private record CachedUserListResult(List<UserListDto> Items, int TotalCount);
 
+        private const string UserListCacheKeysKey = "UserListCacheKeys";
+        private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(30);
 
+        private string BuildUserListCacheKey(
+            int pageNumber,
+            int pageSize, 
+            string? name, 
+            string? email,
+            string? phone,
+            Guid? roleId,
+            bool? isActive,
+            string? sortBy,
+            string? sortDirection)
+        {
+            string kv(string? v) => string.IsNullOrWhiteSpace(v)?"-":v!.Trim().ToLowerInvariant();
+            return $"UserList:pg={pageNumber}:ps={pageSize}:n={kv(name)}:e={kv(email)}:ph={kv(phone)}:role={(roleId?.ToString() ?? "-")}:active={(isActive.HasValue ? (isActive.Value ? "1" : "0") : "-")}:sby={kv(sortBy)}:sdir={kv(sortDirection)}";
+
+        }
+
+        private void RegisterUserListCacheKey(string key)
+        {
+            if(!_cache.TryGetValue(UserListCacheKeysKey, out HashSet<string>? set) || set is null)
+            {
+                set = new HashSet<string>();
+            }
+            if (set.Add(key))
+            {
+                _cache.Set(UserListCacheKeysKey, set, TimeSpan.FromHours(6)); // registry TTL longer than entries
+            }
+        }
+
+        public void ClearUserListCaches()
+        {
+            if (_cache.TryGetValue(UserListCacheKeysKey, out HashSet<string>? set) && set != null)
+            {
+                foreach (var key in set)
+                {
+                    _cache.Remove(key);
+                }
+                // remove registry itself
+                _cache.Remove(UserListCacheKeysKey);
+            }
+        }
         public async Task<(List<UserListDto> Items, int TotalCount)> GetPagedAsync(
     int pageNumber,
     int pageSize,
@@ -67,6 +117,12 @@ namespace AdminPanelProject.Services
 
             try
             {
+                var cacheKey = BuildUserListCacheKey(pageNumber, pageSize, name, email, phone, roleId, isActive, sortBy, sortDirection);
+                if(_cache.TryGetValue(cacheKey, out CachedUserListResult? cached))
+                {
+                    _logger.LogInformation("Returning user list from cache.");
+                    return (cached!.Items, cached!.TotalCount);
+                }
                 // ✅ Build base query (includes roles directly for sorting)
                 var usersQuery =
                     from u in _userManager.Users
@@ -87,7 +143,7 @@ namespace AdminPanelProject.Services
                         RoleName = r.Name
                     };
 
-                // ✅ Apply filters
+                //  Apply filters
                 if (!string.IsNullOrWhiteSpace(name))
                 {
                     string nameFilter = name.Trim();
@@ -107,10 +163,10 @@ namespace AdminPanelProject.Services
                 if (roleId.HasValue)
                     usersQuery = usersQuery.Where(u => u.RoleId == roleId.Value);
 
-                // ✅ Count total after filters
+                //  Count total after filters
                 var totalCount = await usersQuery.CountAsync();
 
-                // ✅ Sorting
+                //  Sorting
                 bool isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
                 sortBy = sortBy?.ToLower() ?? "createdon";
 
@@ -141,16 +197,25 @@ namespace AdminPanelProject.Services
                         : usersQuery.OrderBy(u => u.CreatedOn ?? DateTime.MinValue)
                 };
 
-                // ✅ Pagination
+                // Pagination
                 var users = await usersQuery
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
                 if (!users.Any())
-                    return (new List<UserListDto>(), totalCount);
+                {
+                    var emptyResult = new CachedUserListResult(new List<UserListDto>(), totalCount);
+                    var optionsEmpty = new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = _cacheExpiration
+                    };
+                    _cache.Set(cacheKey, emptyResult, optionsEmpty);
+                    RegisterUserListCacheKey(cacheKey);
+                    return (emptyResult.Items, emptyResult.TotalCount);
+                }
 
-                // ✅ Map to DTOs (roles already available)
+                // Map to DTOs (roles already available)
                 var items = users.Select(u => new UserListDto
                 {
                     Id = u.Id,
@@ -160,8 +225,15 @@ namespace AdminPanelProject.Services
                     Role = u.RoleName ?? string.Empty,
                     IsActive = u.IsActive
                 }).ToList();
+                var result = new CachedUserListResult(items, totalCount);
 
-                return (items, totalCount);
+                var options = new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = _cacheExpiration,
+                };
+                _cache.Set(cacheKey, result, options);
+                RegisterUserListCacheKey(cacheKey);
+                return (result.Items, result.TotalCount);
             }
             catch (TaskCanceledException)
             {
@@ -324,6 +396,14 @@ namespace AdminPanelProject.Services
             }
 
             await _userManager.AddToRoleAsync(user, role.Name);
+            try
+            {
+            ClearUserListCaches();
+            }
+            catch
+            {
+                _logger.LogWarning("Failed to clear user list cache.");
+            }
             return (true, null, null);
         }
 
@@ -343,18 +423,26 @@ namespace AdminPanelProject.Services
             var result = await _userManager.DeleteAsync(user);
             if (!result.Succeeded)
                 return (false, "Failed to delete user.", "DeleteFailed");
-
+            try
+            {
+            ClearUserListCaches();
+            }
+            catch
+            {
+                _logger.LogWarning("Failed to clear user list cache.");
+            }
             return (true, null, null);
         }
 
 
         public async Task<(bool Success, string? Error, string? ErrorCode)> UpdateAsync(Guid id, UpdateUserDto dto, IFormFile? profileImage, string modifiedBy)
         {
+            
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user == null)
                 return (false, "User not found", "NotFound");
 
-            
+                        
   
                 // Get role being assigned
                 var newRole = await _roleManager.FindByIdAsync(dto.RoleId.ToString());
@@ -445,7 +533,7 @@ namespace AdminPanelProject.Services
                 if (!passwordResult.Succeeded)
                     return (false, string.Join(", ", passwordResult.Errors.Select(e => e.Description)), "PasswordResetFailed");
             }
-
+            ClearUserListCaches();
             return (true, null, null);
         }
 

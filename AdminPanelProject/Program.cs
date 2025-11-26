@@ -36,7 +36,7 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 
 
 builder.Services.AddScoped<IAccountService, AccountService>();
-
+builder.Services.AddMemoryCache();
 // If EmailService is also used via DI
 
 builder.Services.AddScoped<IPermissionService, PermissionService>();
