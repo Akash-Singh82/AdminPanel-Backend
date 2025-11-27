@@ -25,9 +25,8 @@ namespace AdminPanelProject.Controllers
         public async Task<IActionResult> IsEmailAvailable(string Email)
         {
             if(string.IsNullOrWhiteSpace(Email))
-            {
                 return BadRequest(new { available = false });
-            }
+            
 
             var user = await _userManager.FindByEmailAsync(Email);
             bool available = (user == null);

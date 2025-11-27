@@ -14,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Caching.Memory;
-
+//VJxB % 9KhJ* pH2nY
 
 namespace AdminPanelProject.Services
 {
@@ -97,8 +97,9 @@ namespace AdminPanelProject.Services
                 {
                     _cache.Remove(key);
                 }
-                // remove registry itself
-                _cache.Remove(UserListCacheKeysKey);
+            // remove registry itself
+            _cache.Remove(UserListCacheKeysKey);
+                
             }
         }
         public async Task<(List<UserListDto> Items, int TotalCount)> GetPagedAsync(

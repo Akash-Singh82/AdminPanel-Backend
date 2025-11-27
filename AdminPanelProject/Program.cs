@@ -184,7 +184,7 @@ app.UseStaticFiles();
 
 app.UseCors("AllowAngularApp");
 
-app.UseAuthentication();  // 👈 Must come before Authorization
+app.UseAuthentication();  //  Must come before Authorization
 app.UseAuthorization();
 
 app.MapControllers();
